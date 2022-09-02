@@ -1,7 +1,9 @@
-local log = require('guihua.log').info
-local trace = require('guihua.log').trace
-local M = {}
+local util = require('navigator.util')
+local log = util.log
+local trace = util.trace
 local clone = require('guihua.util').clone
+
+local M = {}
 local function filename(url)
   if url == nil then
     return ''
@@ -69,7 +71,7 @@ function M.prepare_for_render(items, opts)
     icon = devicons.get_icon(fn, ext) or icon
   end
   -- local call_by_presented = false
-  opts.width = opts.width or 100
+  opts.width = opts.width or math.floor(vim.api.nvim_get_option('columns') * 0.8)
   local win_width = opts.width -- buf
 
   for i = 1, #items do
@@ -150,52 +152,28 @@ function M.prepare_for_render(items, opts)
     trace(ts_report, header_len)
 
     item.text = item.text:gsub('%s*[%[%(%{]*%s*$', '')
-    if item.call_by ~= nil and #item.call_by > 0 then
-      trace('call_by:', #item.call_by)
-      for _, value in pairs(item.call_by) do
-        if value.node_text then
-          local txt = value.node_text:gsub('%s*[%[%(%{]*%s*$', '')
-          local endwise = '{}'
-          if value.type == 'method' or value.type == 'function' then
-            endwise = '()'
-            local syb = items[i].symbol_name
-            if txt == items[i].symbol_name or (#txt > #syb and txt:sub(#txt - #syb + 1) == syb) then
-              if ts_report ~= _NgConfigValues.icons.value_definition .. ' ' then
-                ts_report = ts_report .. _NgConfigValues.icons.value_definition .. ' '
-              end
-              header_len = #ts_report + 1
-            else
-              ts_report = ts_report .. ' '
-            end
-          end
-          if #ts_report > header_len then
-            ts_report = ts_report .. '  '
-          end
-          ts_report = ts_report .. value.kind .. txt .. endwise
-          trace(item)
-        end
-      end
+    if item.call_by ~= nil and item.call_by ~= '' then
+      ts_report = ts_report .. ' ' .. item.call_by
     end
     if #ts_report > 1 then
       space, trim = get_pads(win_width, item.text, ts_report)
+
+      local l = math.max(20, opts.width - math.min(20, #ts_report))
+      if trim and #item.text < l then
+        trim = false
+      end
       if trim then
-        local ts_r = ts_report or ''
-        item.text = string.sub(item.text, 1, math.max(1, opts.width - math.max(20, #ts_r)))
-        local _, j = string.gsub(item.text, [["]], '')
-        if j % 2 == 1 then
-          item.text = item.text .. '"'
-        end
-        _, j = string.gsub(item.text, [[']], '')
-        if j % 2 == 1 then
-          item.text = item.text .. [[']]
-        end
-        item.text = item.text .. ''
+        item.text = string.sub(item.text, 1, l)
+        item.text = util.sub_match(item.text)
         -- let check if there are unmatched "/'
       end
       if #space + #item.text + #ts_report >= win_width then
-        if #item.text + #ts_report > win_width then
-          trace('exceeding', #item.text, #ts_report, win_width)
-          space = '   '
+        if #item.text + #ts_report >= win_width then
+          space = '  '
+          local len = math.max(win_width - #item.text - 4, 16)
+
+          trace('exceeding', #item.text, #ts_report, win_width, len)
+          ts_report = ts_report:sub(1, len)
         else
           local remain = win_width - #item.text - #ts_report
           trace('remain', remain)
