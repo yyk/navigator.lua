@@ -579,6 +579,45 @@ for mason
 
 ```
 
+Another way to setup mason is disable navigator lsp setup and using mason setup handlers, pylsp for example
+
+```lua
+      use("williamboman/mason.nvim")
+      use({
+        "williamboman/mason-lspconfig.nvim",
+        config = function()
+          require("mason").setup()
+          require("mason-lspconfig").setup_handlers({
+            ["pylsp"] = function()
+              require("lspconfig").pylsp.setup({
+                on_attach = function(client, bufnr)
+                  require("navigator.lspclient.mapping").setup({ client = client, bufnr = bufnr }) -- setup navigator keymaps here,
+                  require("navigator.dochighlight").documentHighlight(bufnr)
+                  require("navigator.codeAction").code_action_prompt(bufnr)
+                end,
+              })
+            end,
+          })
+          require("mason-lspconfig").setup({})
+        end,
+      })
+
+      use({
+        "navigator.lua",
+        requires = {
+          { "ray-x/guihua.lua", run = "cd lua/fzy && make" },
+          { "nvim-lspconfig" },
+          { "nvim-treesitter/nvim-treesitter" },
+        },
+        config = function()
+          require("navigator").setup({
+            mason = true,
+            lsp = { disable_lsp = { "pylsp" } },  -- disable pylsp setup from navigator
+          })
+        end,
+      })
+
+```
 
 
 Please refer to [lsp_installer_config](https://github.com/ray-x/navigator.lua/blob/master/playground/init_lsp_installer.lua)
@@ -595,7 +634,9 @@ To start LSP installed by lsp_installer, please use following setups
 require'navigator'.setup({
   -- lsp_installer = false -- default value is false
   lsp = {
-    tsserver = { cmd = {'your tsserver installed by lsp_installer'} }
+    tsserver = { cmd = {'your tsserver installed by lsp_installer or mason'} }
+    -- e.g. tsserver = { cmd = {'/home/username/.local/share/nvim/mason/packages/typescript-language-server/node_modules/typescript/bin/tsserver'} }
+
   }
 })
 
@@ -610,6 +651,7 @@ require'navigator'.setup({
   lsp = {
     tsserver = {
       cmd = { "/Users/username/.local/share/nvim/lsp_servers/python/node_modules/.bin/pyright-langserver", "--stdio" }
+      -- or mason: cmd = { "/Users/username/.local/share/nvim/mason/packages/pyright/node_modules/pyright/index.js", "--stdio"}
     }
   }
 }
